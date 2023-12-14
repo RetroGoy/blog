@@ -1,29 +1,59 @@
 <?php
-$pdo = new PDO('mysql:host=localhost;dbname=blog;charset=utf8', 'username', 'password');
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+include('config.php');
 
-if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-    $article_id = $_GET['id'];
+$articleId = isset($_GET['id']) ? $_GET['id'] : die('Invalid request');
 
-    $sql = "SELECT * FROM articles WHERE id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$article_id]);
-    $article = $stmt->fetch();
-
-    $sql = "SELECT * FROM commentaires WHERE id_billet = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$article_id]);
-    $commentaires = $stmt->fetchAll();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    $stmt = $_COOKI
-    echo "<h2>" . htmlspecialchars($article['titre']) . "</h2>";
-    echo "<p>" . nl2br(htmlspecialchars($article['contenu'])) . "</p>";
+    $author = $_POST['author'];
+    $comment = $_POST['comment'];
 
-    echo "<h3>Commentaires:</h3>";
-    foreach ($commentaires as $commentaire) {
-        echo "<p>" . nl2br(htmlspecialchars($commentaire['commentaire'])) . "</p>";
-    }
-} else {
-    echo "Article non trouvé.";
+    $insertQuery = "INSERT INTO commentaires (id_billet, auteur, commentaire, date_commentaire) 
+                    VALUES (:id, :author, :comment, NOW())";
+
+    $stmt = $pdo->prepare($insertQuery);
+    $stmt->bindParam(':id', $articleId);
+    $stmt->bindParam(':author', $author);
+    $stmt->bindParam(':comment', $comment);
+
+    $stmt->execute();
 }
+
+
+$articleQuery = "SELECT * FROM articles WHERE id = :id";
+$commentQuery = "SELECT * FROM commentaires WHERE id_billet = :id";
+
+$articleStmt = $pdo->prepare($articleQuery);
+$commentStmt = $pdo->prepare($commentQuery);
+
+$articleStmt->bindParam(':id', $articleId);
+$commentStmt->bindParam(':id', $articleId);
+
+$articleStmt->execute();
+$commentStmt->execute();
+
+$article = $articleStmt->fetch(PDO::FETCH_ASSOC);
+$comments = $commentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+echo "<h2>{$article['titre']}</h2>";
+echo "<p>{$article['contenu']}</p>";
+echo "<p>Author: {$article['auteur_article']}</p>";
+echo "<p>Date: {$article['date_creation']}</p>";
+
+echo "<h3>Comments</h3>";
+foreach ($comments as $comment) {
+    echo "<p>{$comment['auteur']} - {$comment['date_commentaire']}</p>";
+    echo "<p>{$comment['commentaire']}</p>";
+    echo "<hr>";
+}
+
+echo "<h3>Add New Comment</h3>";
+echo "<form method='post' action='commentaires.php?id={$articleId}'>";
+echo "<label>Auteur: <input type='text' name='author'></label><br>";
+echo "<label>Commentaire: <textarea name='comment'></textarea></label><br>";
+echo "<input type='submit' value='Envoyer'>";
+echo "</form>";
+
+echo "<a href='articles.php'>Back to Articles</a>";
 ?>
